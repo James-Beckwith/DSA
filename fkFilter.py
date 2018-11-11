@@ -35,7 +35,7 @@ class fkFilter:
         # store size of input data
         self.numberTime, self.numberSpace = np.shape(inputData)
 
-        self.fkDomainFilter = fkDomainFilter
+        self.windowRamp = fkDomainFilter
         self.inputData = inputData
         self.sampleRateTime = sampleRateTime
         self.sampleRateSpace = sampleRateSpace
@@ -81,6 +81,10 @@ class fkFilter:
 
         plt.show()
 
+        # check if the correct number of picks (at least three) has been made
+        if len(picks)<3:
+            raise Exception('At least three picks must be made!!!')
+
         # convert pick data to sample locations
         picksSampX = [(np.abs(picks[i][0] - self.wavenumber)).argmin() for i in range(len(picks))]
         picksSampY = [(np.abs(picks[i][1] - self.freqTimePositive)).argmin() for i in range(len(picks))]
@@ -109,50 +113,35 @@ class fkFilter:
         plt.imshow(self.FKpolygon, aspect='auto')
         plt.show()
 
-
     ''' apply ramp function to picked points '''
     def applyRamp(self, picks):
 
         # interpolate points onto grid samplingtion
-        # 'ramp' is ramp length
         # interpolate between points (1D linear interpolation in 2D space)
         marks=0
         picks.append(picks[0])
         rampLength = len(self.rampFunc)
         line1=[]
-        #tmp=[picks;picks(1,:)];
         for ii in range(len(picks) - 1):
 
             # fit straight line between successive points
             dx=picks[ii+1][0] - picks[ii][0]
             dy=picks[ii+1][1] - picks[ii][1]
-            # try:
-            #     m=dy/dx
-            #     mInfFlag=0
-            #     c=picks[ii][1] - m*picks[ii][0]
-            # except:
-            #     mInfFlag = 1
 
             if (dx!=0) or (dy!=0):
                 if abs(dx)>=abs(dy):
                     m=dy/dx
                     c=picks[ii][1] - m*picks[ii][0]
                     tmp = np.arange(picks[ii][0], picks[ii+1][0] + dx/abs(dx), dx/abs(dx))
-                    #line1.append([tmp.tolist(), (m*tmp+c).tolist()])
                     line1 += np.vstack([tmp.tolist(), (m*tmp+c).tolist()]).T.tolist()
                     marks=marks+abs(dx)
                 else:
-                    #line1(marks:marks+abs(dy),2)=tmp(ii,2):dy/abs(dy):tmp(ii+1,2);
                     tmp = np.arange(picks[ii][1], picks[ii+1][1] + dy/abs(dy), dy/abs(dy))
                     if dx==0:
-                        #line1(marks:marks+abs(dy),1)=picks[ii][0]*len(tmp);
-                        #line1.append([[picks[ii][0]]*len(tmp), tmp.tolist()])
                         line1 += np.vstack([[picks[ii][0]]*len(tmp), tmp.tolist()]).T.tolist()
                     else:
                         m=dy/dx
                         c=picks[ii][1] - m*picks[ii][0]
-                        #line1(marks:marks+abs(dy),1)=(line1(marks:marks+abs(dy),2)-c)/m;
-                        #line1.append([((tmp - c)/m).tolist(), tmp.tolist()])
                         line1 += np.vstack([((tmp - c)/m).tolist(), tmp.tolist()]).T.tolist()
                     marks=marks+abs(dy)
 
@@ -183,11 +172,36 @@ class fkFilter:
 
     ''' apply pre-defined FK window function in FK domain and inverse FFT '''
     def applyFKFilter(self):
-        print('poop')
 
-    ''' create the impulse response of the FK domain filter in the time-space domain '''
+        # check if an FK domain window has been defined
+        if self.windowRamp is None:
+            raise Exception('No FK domain window function defined')
+
+        # copy window to negative frequencies
+        window = np.vstack([self.windowRamp[-1::-1,:], self.windowRamp[2:,-1::-1]])
+        # apply window function in FK space
+        inputDataFKWindowed = self.inputDataFK * window
+        # invert data back to time-sapce domain
+        inputDataWindowed = np.fft.ifft2(inputDataFKWindowed)
+        # remove padding
+        self.filteredData = np.real(inputDataWindowed[:self.numberTime,:self.numberSpace])
+
+    ''' create the impulse response of the FK domain filter in the time-space domain
+        Impulse response is stored in the variable FKimpulse'''
     def impulseResponse(self):
 
         # check if an FK domain window has been defined
-        if self.fkDomainFilter is None:
-            raise NameError('No FK domain window function defined')
+        if self.windowRamp is None:
+            raise Exception('No FK domain window function defined')
+
+        # setup spike in middle of image for which to apply filter to show impulse repsonse
+        # of picked window
+        spike = np.zeros([self.numberTime, self.numberSpace])
+        spike[int(np.round(self.numberTime/2.0)), int(np.round(self.numberSpace/2.0))]=1.0
+        spikeFFT = np.fft.fft2(spike,s=[self.numberFrequency, self.numberWavenumber])
+
+        # inverse fft the window function
+        # copy window to negative frequencies
+        window = np.vstack([self.windowRamp[-1::-1,:], self.windowRamp[2:,-1::-1]])
+        self.FKimpulse =  np.fft.ifft2(window * spikeFFT)
+        self.FKimpulse = np.real(self.FKimpulse[:self.numberTime,:self.numberSpace])
