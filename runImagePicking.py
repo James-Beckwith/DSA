@@ -20,6 +20,8 @@ else:
 # read and convert to greyscale
 im = np.asarray(Image.open(imagePath).convert('L'))
 
+print('To make a pick: hover the mouse of the relevant point and hit the "x" key')
+print('To finish picking hit the "e" key')
 print('Please give a name for the mask, it will be appended to the input file name')
 name = input()
 # Instantiate imagepicking object

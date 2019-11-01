@@ -32,16 +32,17 @@ class imagePicking:
         # define what to do when a pick is made, mouse button 1-> store picks,
         # mouse button 3->stop picking
         def onpick(event):
-            if event.button == 1:
+            print(event.key)
+            if event.key == 'x' or event.key == 'X':
                 picks.append([event.xdata, event.ydata])
                 if len(picks) > 1:
                     ax.plot([picks[-2][0], picks[-1][0]],[picks[-2][1], picks[-1][1]], "w-")
                     fig.canvas.draw()
                     fig.canvas.flush_events()
-            if event.button == 3:
+            if event.key == 'e' or event.key == 'E':
                 plt.close()
 
-        fig.canvas.mpl_connect('button_press_event', onpick)
+        fig.canvas.mpl_connect('key_press_event', onpick)
 
         plt.show()
 
