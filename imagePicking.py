@@ -51,13 +51,13 @@ class imagePicking:
 
         # convert picks to polygon
         # define meshgrid of points
-        x, y = np.meshgrid(np.arange(self.numX), np.arange(self.numY))
+        x, y = np.meshgrid(np.arange(self.numY), np.arange(self.numX))
         x, y = x.flatten(), y.flatten()
         points = np.vstack((x, y)).T
 
         p = Path(picks)
         grid = p.contains_points(points)
-        self.polygon = grid.reshape(self.numY, self.numX)
+        self.polygon = grid.reshape(self.numX, self.numY)
         self.polygon = self.polygon.astype(float)
 
         # save out as an image
